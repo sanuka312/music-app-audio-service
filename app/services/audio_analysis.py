@@ -1,23 +1,26 @@
-import librosa
-import numpy as np
-
 NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 ANALYSIS_SAMPLE_RATE = 22050
 MAX_ANALYSIS_DURATION_SEC = 120
 
-MAJOR_PROFILE = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
-MINOR_PROFILE = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
+MAJOR_PROFILE = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
+MINOR_PROFILE = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
+
 
 def detect_scale(y, sr):
+    import librosa
+    import numpy as np
+
     chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
     chroma_mean = np.mean(chroma, axis=1)
+    major_profile = np.array(MAJOR_PROFILE)
+    minor_profile = np.array(MINOR_PROFILE)
 
     best_score = -1
     best_key = "Unknown"
 
     for i in range(12):
-        major_score = np.corrcoef(chroma_mean, np.roll(MAJOR_PROFILE, i))[0, 1]
-        minor_score = np.corrcoef(chroma_mean, np.roll(MINOR_PROFILE, i))[0, 1]
+        major_score = np.corrcoef(chroma_mean, np.roll(major_profile, i))[0, 1]
+        minor_score = np.corrcoef(chroma_mean, np.roll(minor_profile, i))[0, 1]
 
         if major_score > best_score:
             best_score = major_score
@@ -29,15 +32,17 @@ def detect_scale(y, sr):
 
     return best_key
 
+
 def midi_to_note(midi_note):
     note_index = int(round(midi_note)) % 12
     octave = int(round(midi_note)) // 12 - 1
     return f"{NOTE_NAMES[note_index]}{octave}"
 
+
 def safe_tempo(y, sr):
-    """
-    Estimate tempo without crashing on large files.
-    """
+    import librosa
+    import numpy as np
+
     try:
         tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
     except Exception:
@@ -50,7 +55,11 @@ def safe_tempo(y, sr):
         return int(round(float(np.mean(tempo_arr))))
     return 0
 
+
 def analyze_audio(file_path):
+    import librosa
+    import numpy as np
+
     y, sr = librosa.load(
         file_path,
         sr=ANALYSIS_SAMPLE_RATE,
@@ -87,7 +96,7 @@ def analyze_audio(file_path):
             "confidence": 0,
             "tempo": 0,
             "notes": [],
-            "pitchTimeline": pitch_timeline, 
+            "pitchTimeline": pitch_timeline,
         }
 
     avg_pitch = float(np.mean(pitch_values))
@@ -106,4 +115,4 @@ def analyze_audio(file_path):
         "tempo": int(round(tempo)),
         "notes": [note],
         "pitchTimeline": pitch_timeline,
-    }   
+    }
